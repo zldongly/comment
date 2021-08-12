@@ -1,0 +1,105 @@
+syntax = "proto3";
+
+option go_package = "api/comment/service/v1;v1";
+
+service CommentService {
+    // 创建主题
+    rpc CreateSubject(CreateSubjectReq) returns (CreateSubjectReply) {}
+
+    // 新增评论或回复
+    rpc CreateComment(CreateCommentReq) returns (CreateCommentReply) {}
+
+    // 删除评论
+    rpc DeleteComment(DeleteCommentReq) returns (DeleteCommentReply) {}
+
+    // 查评论
+    rpc ListComment(ListCommentReq) returns (ListCommentReply) {}
+
+    // 查回复
+    rpc ListReply(ListReplyReq) returns (ListReplyReply) {}
+}
+
+message CreateSubjectReq {
+    int64 obj_id = 1;
+    int32 obj_type = 2;
+    int64 member_id = 3; // uid 用户ID
+}
+
+message CreateSubjectReply {}
+
+message CreateCommentReq {
+    int64 obj_id = 1;
+    int32 obj_type = 2;
+    int64 member_id = 3;
+
+    int64  root = 4;
+    int64  parent = 5;
+    repeated int64 at_member_ids = 6; // @的人
+    string message = 7;
+    string meta = 8; // 背景等信息
+    int64 ip = 9;
+    string platform = 10;
+    string  device = 11;
+}
+
+message CreateCommentReply {}
+
+message DeleteCommentReq {
+    int64 comment_id = 1;
+}
+
+message DeleteCommentReply {}
+
+message ListCommentReq {
+    int64 obj_id = 1;
+    int32 obj_type = 2;
+
+    int32 page_no = 3;
+    int32 page_size = 4;
+}
+
+message ListCommentReply {
+    message Comment {
+        int64 comment_id = 1;
+        int64 member_id = 2; // 作者
+        int64 floor = 3;
+        int64 like = 4;
+        int64 hate = 5;
+        repeated int64 at_member_ids = 6;
+        string message = 7;
+        string meta = 8;
+        int64 create_time = 9;
+
+        int32 count = 10; // 回复的数量
+        repeated Reply replies = 11;
+    }
+
+    repeated Comment list = 1;
+    int32 total = 2; // 现存根评论数量
+
+}
+
+message ListReplyReq {
+    int64 comment_id = 1;
+
+    int32 page_no = 2;
+    int32 page_size = 3;
+}
+
+message ListReplyReply {
+    repeated Reply replies = 1;
+    int32 total = 2; // 回复数量
+}
+
+message Reply {// 评论
+    int64 comment_id = 1;
+    int64 member_id = 2; // 作者
+    int64 parent_id = 3; // 回复的那条comment_id
+    int64 reply_member_id = 4; // 回复的人
+    int64 floor = 5;
+    int64 like = 6;
+    int64 hate = 7;
+    repeated int64 at_member_ids = 8;
+    string  message = 9;
+    int64 create_time = 10;
+}
