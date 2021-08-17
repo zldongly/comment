@@ -65,7 +65,39 @@ func NewSubjectRepo(data *Data, logger log.Logger) biz.SubjectRepo {
 }
 
 func (r *subjectRepo) Create(ctx context.Context, b *biz.Subject) error {
+	s := CommentSubject{ // job.api
+		Id:        0,
+		ObjId:     b.ObjId,
+		ObjType:   b.ObjType,
+		MemberId:  b.MemberId,
+		Count:     b.Count,
+		RootCount: b.RootCount,
+		AllCount:  b.AllCount,
+		Status:    b.Status,
+	}
+	bs, err := json.Marshal(s)
+	if err != nil {
+		return errors.InternalServer("json", "json.marshal").
+			WithMetadata(map[string]string{
+				"err":   err.Error(),
+				"param": fmt.Sprintf("%+v", s),
+			})
+	}
 	// kafka
+	msg := &sarama.ProducerMessage{
+		Topic: "comment/subject/create",
+		Key:   sarama.StringEncoder(fmt.Sprintf("%d+%d", b.ObjId, b.ObjType)),
+		Value: sarama.ByteEncoder(bs),
+	}
+	_, _, err = r.data.kafka.SendMessage(msg)
+	if err != nil {
+		return errors.InternalServer("kafka", "send message").
+			WithMetadata(map[string]string{
+				"err":   err.Error(),
+				"param": fmt.Sprintf("%+v", s),
+			})
+	}
+
 	return nil
 }
 
@@ -102,8 +134,7 @@ func (r *subjectRepo) Get(ctx context.Context, objId int64, objType int32) (b *b
 	reply, err = r.data.redis.Get().Do("Get", key)
 	if err != nil {
 		log.Error(err)
-	}
-	if reply != nil { // 命中缓存
+	} else if reply != nil { // 命中缓存
 		if buf, ok = reply.([]byte); ok {
 			err = json.Unmarshal(buf, &s)
 			if err != nil {
@@ -130,24 +161,23 @@ func (r *subjectRepo) Get(ctx context.Context, objId int64, objType int32) (b *b
 		return b, err
 	}
 
-
+	// 此处考虑errgroup并行处理
+	// 填入本地缓存
 	buf, err = json.Marshal(s)
 	if err != nil {
 		log.Error(err)
 		return s.ToBiz(), nil
 	}
-
-	// 此处考虑errgroup并行处理
-	// 填入本地缓存
 	if err = r.data.cache.Set([]byte(key), buf, 8); err != nil {
 		log.Error(err)
 	}
 
 	// kafka
+	val := fmt.Sprintf("%d+%d", objId, objType)
 	msg := &sarama.ProducerMessage{
-		Topic: "subject", // 放到 job.api 中
-		Key:   sarama.StringEncoder(fmt.Sprintf("%d+%d", objId, objType)),
-		Value: sarama.ByteEncoder(buf),
+		Topic: "comment/subject/cache", // 放到 job.api 中
+		Key:   sarama.StringEncoder(val),
+		Value: sarama.StringEncoder(val),
 	}
 	_, _, err = r.data.kafka.SendMessage(msg)
 	if err != nil {

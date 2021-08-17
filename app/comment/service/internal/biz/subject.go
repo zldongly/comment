@@ -2,7 +2,6 @@ package biz
 
 import (
 	"context"
-	"github.com/go-kratos/kratos/v2/log"
 )
 
 type Subject struct {
@@ -19,9 +18,4 @@ type Subject struct {
 type SubjectRepo interface {
 	Create(ctx context.Context, s *Subject) error
 	Get(ctx context.Context, objId int64, objType int32) (*Subject, error)
-}
-
-type CardUseCase struct {
-	repo SubjectRepo
-	log  *log.Helper
 }
