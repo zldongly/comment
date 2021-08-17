@@ -1,6 +1,7 @@
 package data
 
 import (
+	"github.com/google/wire"
 	"github.com/zldongly/comment/app/comment/service/internal/conf"
 
 	"github.com/Shopify/sarama"
@@ -14,7 +15,7 @@ import (
 )
 
 // ProviderSet is data providers.
-//var ProviderSet = wire.NewSet(NewData, NewDB, NewOrderRepo)
+var ProviderSet = wire.NewSet(NewData, NewDB, NewRedis, NewKafka, NewSubjectRepo, NewIndexRepo, NewContentRepo)
 
 // Data .
 type Data struct {
@@ -44,29 +45,35 @@ func NewDB(conf *conf.Data, logger log.Logger) *gorm.DB {
 	return db
 }
 
-func NewRedis(conf *conf.Data, logger log.Logger) {
+func NewRedis(conf *conf.Data, logger log.Logger) *redis.Pool {
 
 	log := log.NewHelper(log.With(logger, "module", "comment-service/data/redis"))
 	_ = log
 	// TODO: 2021/8/15
+	return nil
 }
 
-func NewKafka(conf *conf.Data, logger log.Logger) {
+func NewKafka(conf *conf.Data, logger log.Logger) sarama.SyncProducer {
 	log := log.NewHelper(log.With(logger, "module", "comment-service/data/kafka"))
 	_ = log
 	//sarama.NewSyncProducer()
+	return nil
 }
 
 // NewData .
-func NewData(db *gorm.DB, logger log.Logger) (*Data, func(), error) {
+func NewData(db *gorm.DB, redis *redis.Pool, kafka sarama.SyncProducer, logger log.Logger) (*Data, func(), error) {
 	log := log.NewHelper(log.With(logger, "module", "comment-service/data"))
 
 	d := &Data{
 		db:    db,
+		redis: redis,
+		kafka: kafka,
 		log:   log,
 		cache: freecache.NewCache(128 * 1024 * 1024),
 	}
-	return d, func() {
 
+	return d, func() {
+		d.redis.Close()
+		d.kafka.Close()
 	}, nil
 }

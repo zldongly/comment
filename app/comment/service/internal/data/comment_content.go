@@ -13,14 +13,11 @@ import (
 	"time"
 )
 
+var _ biz.ContentRepo = (*contentRepo)(nil)
+
 const (
 	_commentContentCacheKey = `comment_content_cache:%d`
 )
-
-type indexRepo struct {
-	data *Data
-	log  *log.Helper
-}
 
 type CommentContent struct {
 	CommentId int64 `gorm:"primarykey"` // 同 CommentIndex.Id
@@ -43,20 +40,20 @@ func (*CommentContent) TableName() string {
 
 func (c *CommentContent) ToBiz() *biz.CommentContent {
 	b := &biz.CommentContent{
-		CommentId   : c.CommentId,
-		Ip          : c.Ip,
-		Platform   : c.Platform,
-		Device     : c.Device,
-		Message  : c.Message,
-		Meta     : c.Meta,
-		UpdateAt: c.UpdateAt,
+		CommentId: c.CommentId,
+		Ip:        c.Ip,
+		Platform:  c.Platform,
+		Device:    c.Device,
+		Message:   c.Message,
+		Meta:      c.Meta,
+		UpdateAt:  c.UpdateAt,
 	}
 	if len(c.AtMemberIds) == 0 {
 		return b
 	}
 	ids := strings.Split(c.AtMemberIds, ",")
 	for _, mid := range ids {
-		id , err := strconv.ParseInt(mid, 10, 64)
+		id, err := strconv.ParseInt(mid, 10, 64)
 		if err != nil {
 			continue
 		}
@@ -65,13 +62,25 @@ func (c *CommentContent) ToBiz() *biz.CommentContent {
 	return b
 }
 
-func (r *indexRepo) ListCommentContent(ctx context.Context, ids []int64) ([]*biz.CommentContent, error) {
+type contentRepo struct {
+	data *Data
+	log  *log.Helper
+}
+
+func NewContentRepo(data *Data, logger log.Logger) biz.ContentRepo {
+	return &contentRepo{
+		data: data,
+		log:  log.NewHelper(log.With(logger, "module", "data/comment_subject")),
+	}
+}
+
+func (r *contentRepo) ListCommentContent(ctx context.Context, ids []int64) ([]*biz.CommentContent, error) {
 	var (
 		log     = r.log
 		err     error
 		list    = make([]*CommentContent, 0, len(ids))
 		lessIds = make([]int64, 0, len(ids))
-		result = make([]*biz.CommentContent, 0, len(ids))
+		result  = make([]*biz.CommentContent, 0, len(ids))
 	)
 
 	// 本地缓存
