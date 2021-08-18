@@ -4,10 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/Shopify/sarama"
 	"github.com/coocood/freecache"
 	"github.com/go-kratos/kratos/v2/errors"
 	"github.com/go-kratos/kratos/v2/log"
+	job "github.com/zldongly/comment/api/comment/job/v1"
 	"github.com/zldongly/comment/app/comment/service/internal/biz"
+	"google.golang.org/protobuf/proto"
 	"strconv"
 	"strings"
 	"time"
@@ -16,6 +19,7 @@ import (
 var _ biz.ContentRepo = (*contentRepo)(nil)
 
 const (
+	_localCacheExpire = 5
 	_commentContentCacheKey = `comment_content_cache:%d`
 )
 
@@ -81,6 +85,7 @@ func (r *contentRepo) ListCommentContent(ctx context.Context, ids []int64) ([]*b
 		list    = make([]*CommentContent, 0, len(ids))
 		lessIds = make([]int64, 0, len(ids))
 		result  = make([]*biz.CommentContent, 0, len(ids))
+		cache   = r.data.cache
 	)
 
 	// 本地缓存
@@ -90,7 +95,7 @@ func (r *contentRepo) ListCommentContent(ctx context.Context, ids []int64) ([]*b
 			val []byte
 		)
 
-		val, err = r.data.cache.Get([]byte(key))
+		val, err = cache.Get([]byte(key))
 		if err != nil {
 			if !errors.Is(err, freecache.ErrNotFound) {
 				log.Error(err)
@@ -162,10 +167,45 @@ func (r *contentRepo) ListCommentContent(ctx context.Context, ids []int64) ([]*b
 		}
 
 		list = append(list, contents...)
+
+		// 填入本地缓存
+		for _, content := range contents {
+			buf, err := json.Marshal(content)
+			if err != nil {
+				log.Error(err)
+				continue
+			}
+			key := fmt.Sprintf(_commentContentCacheKey, content.CommentId)
+			err = cache.Set([]byte(key), buf, _localCacheExpire)
+			if err != nil {
+				log.Error(err)
+			}
+		}
 	}
 
 	for _, content := range list {
 		result = append(result, content.ToBiz())
+	}
+
+	// kafka
+	if len(ids) > 0 {
+		k := &job.CacheContentReq{
+			CommentIds: ids,
+		}
+		if buf, err := proto.Marshal(k); err != nil {
+			log.Error(err)
+		} else {
+
+			msg := &sarama.ProducerMessage{
+				Topic: job.TopicCacheContent,
+				//Key: sarama.ByteEncoder{}, // obj_id+obj_type
+				Value: sarama.ByteEncoder(buf),
+			}
+			_, _, err = r.data.kafka.SendMessage(msg)
+			if err != nil {
+				log.Error(err)
+			}
+		}
 	}
 
 	return result, nil

@@ -6,7 +6,7 @@ import (
 )
 
 type CommentContent struct {
-	CommentId   int64 `gorm:"primarykey"` // 同 CommentIndex.Id
+	CommentId   int64
 	Ip          string
 	Platform    string
 	Device      string
