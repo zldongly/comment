@@ -1,16 +1,17 @@
 package data
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/Shopify/sarama"
 	"github.com/coocood/freecache"
 	"github.com/go-kratos/kratos/v2/errors"
 	"github.com/go-kratos/kratos/v2/log"
+	job "github.com/zldongly/comment/api/comment/job/v1"
 	"github.com/zldongly/comment/app/comment/service/internal/biz"
+	"google.golang.org/protobuf/proto"
 	"gorm.io/gorm"
-
-	"context"
 	"time"
 )
 
@@ -65,17 +66,12 @@ func NewSubjectRepo(data *Data, logger log.Logger) biz.SubjectRepo {
 }
 
 func (r *subjectRepo) Create(ctx context.Context, b *biz.Subject) error {
-	s := CommentSubject{ // job.api
-		Id:        0,
-		ObjId:     b.ObjId,
-		ObjType:   b.ObjType,
-		MemberId:  b.MemberId,
-		Count:     b.Count,
-		RootCount: b.RootCount,
-		AllCount:  b.AllCount,
-		Status:    b.Status,
+	s := &job.CreateSubjectReq{
+		ObjId:    b.ObjId,
+		ObjType:  b.ObjType,
+		MemberId: b.MemberId,
 	}
-	bs, err := json.Marshal(s)
+	bs, err := proto.Marshal(s)
 	if err != nil {
 		return errors.InternalServer("json", "json.marshal").
 			WithMetadata(map[string]string{
@@ -85,7 +81,7 @@ func (r *subjectRepo) Create(ctx context.Context, b *biz.Subject) error {
 	}
 	// kafka
 	msg := &sarama.ProducerMessage{
-		Topic: "comment/subject/create",
+		Topic: job.TopicCreateSubject,
 		Key:   sarama.StringEncoder(fmt.Sprintf("%d+%d", b.ObjId, b.ObjType)),
 		Value: sarama.ByteEncoder(bs),
 	}
@@ -173,11 +169,19 @@ func (r *subjectRepo) Get(ctx context.Context, objId int64, objType int32) (b *b
 	}
 
 	// kafka
-	val := fmt.Sprintf("%d+%d", objId, objType)
+	k := &job.CacheSubjectReq{
+		ObjId:   objId,
+		ObjType: objType,
+	}
+	buf, err = proto.Marshal(k)
+	if err != nil {
+		log.Error(err)
+		return s.ToBiz(), nil
+	}
 	msg := &sarama.ProducerMessage{
-		Topic: "comment/subject/cache", // 放到 job.api 中
-		Key:   sarama.StringEncoder(val),
-		Value: sarama.StringEncoder(val),
+		Topic: job.TopicCacheSubject,
+		Key:   sarama.StringEncoder(fmt.Sprintf("%d+%d", objId, objType)),
+		Value: sarama.StringEncoder(buf),
 	}
 	_, _, err = r.data.kafka.SendMessage(msg)
 	if err != nil {
