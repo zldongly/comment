@@ -2,11 +2,11 @@ package v1
 
 // kafka topic
 const (
-	TopicSubjectCreate = "comment_subject_create"
-	TopicSubjectCache  = "comment_subject_cache"
-	TopicCommentCreate = "comment_create"
-	TopicCommentDelete = "comment_delete"
-	TopicIndexCache    = "comment_index_cache"
-	TopicContentCache  = "comment_content_cache"
-	TopicReplyCache    = "comment_reply_cache"
+	TopicCreateSubject = "comment_subject_create"
+	TopicCacheSubject  = "comment_subject_cache"
+	TopicCreateComment = "comment_create"
+	TopicDeleteComment = "comment_delete"
+	TopicCacheIndex    = "comment_index_cache"
+	TopicCacheContent  = "comment_content_cache"
+	TopicCacheReply    = "comment_reply_cache"
 )
