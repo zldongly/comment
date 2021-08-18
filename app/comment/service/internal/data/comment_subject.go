@@ -126,8 +126,12 @@ func (r *subjectRepo) Get(ctx context.Context, objId int64, objType int32) (b *b
 	}
 
 	// 读redis
-	var reply interface{}
-	reply, err = r.data.redis.Get().Do("Get", key)
+	var (
+		redis = r.data.redis
+		reply interface{}
+	)
+	reply, err = redis.Get().Do("Get", key)
+	redis.Close()
 	if err != nil {
 		log.Error(err)
 	} else if reply != nil { // 命中缓存
@@ -164,7 +168,7 @@ func (r *subjectRepo) Get(ctx context.Context, objId int64, objType int32) (b *b
 		log.Error(err)
 		return s.ToBiz(), nil
 	}
-	if err = r.data.cache.Set([]byte(key), buf, 8); err != nil {
+	if err = r.data.cache.Set([]byte(key), buf, _localCacheExpire); err != nil {
 		log.Error(err)
 	}
 
