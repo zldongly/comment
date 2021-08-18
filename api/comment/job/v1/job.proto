@@ -1,0 +1,63 @@
+syntax = "proto3";
+
+package comment.job.v1;
+
+option go_package = "api/comment/job/v1;v1";
+
+service CommentJob {
+    rpc CreateSubject(CreateSubjectReq) returns (Null) {}
+    rpc CacheSubject(CacheSubjectReq) returns (Null) {}
+    rpc CreateComment(CreateCommentReq) returns (Null) {}
+    rpc DeleteComment(DeleteCommentReq) returns (Null) {}
+    rpc CacheIndex(CacheIndexReq) returns (Null) {}
+    rpc CacheContent(CacheContentReq) returns (Null) {}
+    rpc CacheReply(CacheReplyReq) returns (Null) {}
+}
+
+message CreateSubjectReq {
+    int64 obj_id = 1;
+    int32 obj_type = 2;
+    int64 member_id = 3;
+}
+
+message CacheSubjectReq {
+    int64 obj_id = 1;
+    int32 obj_type = 2;
+}
+
+message CreateCommentReq {
+    int64 obj_id = 1;
+    int32 obj_type = 2;
+    int64 member_id = 3;
+    int64  root = 4;
+    int64  parent = 5;
+    repeated int64 at_member_ids = 6; // @的人
+    string message = 7;
+    string meta = 8; // 背景等信息
+    int64 ip = 9;
+    string platform = 10;
+    string  device = 11;
+}
+
+message DeleteCommentReq {
+    int64 comment_id = 1;
+}
+
+message CacheIndexReq {
+    int64 obj_id = 1;
+    int32 obj_type = 2;
+    int32 page_no = 3;
+    int32 page_size = 4;
+}
+
+message CacheContentReq {
+    repeated int64 comment_ids = 1;
+}
+
+message CacheReplyReq {
+    int64 comment_id = 1;
+    int32 page_no = 2;
+    int32 page_size = 3;
+}
+
+message Null {}
