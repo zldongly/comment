@@ -1,12 +1,8 @@
 package data
 
 import (
-	"github.com/go-kratos/kratos/v2/log"
-	"github.com/zldongly/comment/app/comment/service/internal/biz"
 	"time"
 )
-
-var _ biz.IndexRepo = (*indexRepo)(nil)
 
 const (
 	_commentContentIndexKey = `comment_index_cache:%d:%d`
@@ -36,17 +32,3 @@ type CommentIndex struct {
 func (*CommentIndex) TableName() string {
 	return "comment_index"
 }
-
-type indexRepo struct {
-	data *Data
-	log  *log.Helper
-}
-
-
-func NewIndexRepo(data *Data, logger log.Logger) biz.IndexRepo {
-	return &indexRepo{
-		data: data,
-		log:  log.NewHelper(log.With(logger, "module", "data/comment_subject")),
-	}
-}
-

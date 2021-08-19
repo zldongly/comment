@@ -7,26 +7,19 @@ import (
 	"github.com/Shopify/sarama"
 	"github.com/coocood/freecache"
 	"github.com/go-kratos/kratos/v2/errors"
-	"github.com/go-kratos/kratos/v2/log"
 	job "github.com/zldongly/comment/api/comment/job/v1"
-	"github.com/zldongly/comment/app/comment/service/internal/biz"
 	"google.golang.org/protobuf/proto"
-	"strconv"
-	"strings"
 	"time"
 )
 
-var _ biz.ContentRepo = (*contentRepo)(nil)
-
 const (
-	_localCacheExpire = 5
 	_commentContentCacheKey = `comment_content_cache:%d`
 )
 
 type CommentContent struct {
 	CommentId int64 `gorm:"primarykey"` // 同 CommentIndex.Id
 
-	Ip       string
+	Ip       int64
 	Platform string
 	Device   string
 
@@ -42,49 +35,12 @@ func (*CommentContent) TableName() string {
 	return "comment_content"
 }
 
-func (c *CommentContent) ToBiz() *biz.CommentContent {
-	b := &biz.CommentContent{
-		CommentId: c.CommentId,
-		Ip:        c.Ip,
-		Platform:  c.Platform,
-		Device:    c.Device,
-		Message:   c.Message,
-		Meta:      c.Meta,
-		UpdateAt:  c.UpdateAt,
-	}
-	if len(c.AtMemberIds) == 0 {
-		return b
-	}
-	ids := strings.Split(c.AtMemberIds, ",")
-	for _, mid := range ids {
-		id, err := strconv.ParseInt(mid, 10, 64)
-		if err != nil {
-			continue
-		}
-		b.AtMemberIds = append(b.AtMemberIds, id)
-	}
-	return b
-}
-
-type contentRepo struct {
-	data *Data
-	log  *log.Helper
-}
-
-func NewContentRepo(data *Data, logger log.Logger) biz.ContentRepo {
-	return &contentRepo{
-		data: data,
-		log:  log.NewHelper(log.With(logger, "module", "data/comment_subject")),
-	}
-}
-
-func (r *contentRepo) ListCommentContent(ctx context.Context, ids []int64) ([]*biz.CommentContent, error) {
+func (r *commentRepo) listCommentContent(ctx context.Context, ids []int64) ([]*CommentContent, error) {
 	var (
 		log     = r.log
 		err     error
 		list    = make([]*CommentContent, 0, len(ids))
 		lessIds = make([]int64, 0, len(ids))
-		result  = make([]*biz.CommentContent, 0, len(ids))
 		cache   = r.data.cache
 	)
 
@@ -160,6 +116,7 @@ func (r *contentRepo) ListCommentContent(ctx context.Context, ids []int64) ([]*b
 	if len(ids) > 0 {
 		var contents []*CommentContent
 		result := r.data.db.
+			WithContext(ctx).
 			Where("comment_id IN (?)", ids).
 			Find(&contents)
 		if result.Error != nil {
@@ -183,10 +140,6 @@ func (r *contentRepo) ListCommentContent(ctx context.Context, ids []int64) ([]*b
 		}
 	}
 
-	for _, content := range list {
-		result = append(result, content.ToBiz())
-	}
-
 	// kafka
 	if len(ids) > 0 {
 		k := &job.CacheContentReq{
@@ -195,7 +148,6 @@ func (r *contentRepo) ListCommentContent(ctx context.Context, ids []int64) ([]*b
 		if buf, err := proto.Marshal(k); err != nil {
 			log.Error(err)
 		} else {
-
 			msg := &sarama.ProducerMessage{
 				Topic: job.TopicCacheContent,
 				//Key: sarama.ByteEncoder{}, // obj_id+obj_type
@@ -208,5 +160,5 @@ func (r *contentRepo) ListCommentContent(ctx context.Context, ids []int64) ([]*b
 		}
 	}
 
-	return result, nil
+	return list, nil
 }
