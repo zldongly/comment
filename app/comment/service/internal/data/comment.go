@@ -19,6 +19,6 @@ type commentRepo struct {
 func NewCommentRepo(data *Data, logger log.Logger) biz.CommentRepo {
 	return &commentRepo{
 		data: data,
-		log:  log.NewHelper(log.With(logger, "module", "data/comment_subject")),
+		log:  log.NewHelper(log.With(logger, "module", "data/comment")),
 	}
 }

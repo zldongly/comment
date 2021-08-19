@@ -35,7 +35,7 @@ func (*CommentContent) TableName() string {
 	return "comment_content"
 }
 
-func (r *commentRepo) listCommentContent(ctx context.Context, ids []int64) ([]*CommentContent, error) {
+func (r *commentRepo) ListCommentContent(ctx context.Context, ids []int64) ([]*CommentContent, error) {
 	var (
 		log     = r.log
 		err     error

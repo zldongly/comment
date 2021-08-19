@@ -14,10 +14,11 @@ type CommentIndex struct {
 	ObjType  int32
 	MemberId int64
 
-	Root   int64 // 根评论ID
-	Patent int64 // 父评论
-	Floor  int32 // 楼层
-	Count  int32 // 回复数量
+	Root           int64 // 根评论ID
+	Parent         int64 // 父评论
+	ParentMemberId int64 // 回复的人
+	Floor          int32 // 楼层
+	Count          int32 // 回复数量
 
 	Like int32 // 点赞
 	Hate int32 // 点睬
