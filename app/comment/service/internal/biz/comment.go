@@ -67,7 +67,7 @@ type CommentRepo interface {
 	CreateComment(ctx context.Context, comment *Comment) error
 	DeleteComment(ctx context.Context, id int64) error
 	ListCommentIndex(ctx context.Context, objType int32, objId int64, pageNo int32, pageSize int32) ([]*CommentIndex, error)
-	ListReply(ctx context.Context, id int64) ([]*CommentIndex, error)
+	ListReplyIndex(ctx context.Context, id int64, pageNo int32, pageSize int32) ([]*CommentIndex, error)
 	ListCommentContent(ctx context.Context, ids []int64) ([]*CommentContent, error)
 }
 

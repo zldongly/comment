@@ -8,6 +8,8 @@ import (
 	"github.com/coocood/freecache"
 	"github.com/go-kratos/kratos/v2/errors"
 	job "github.com/zldongly/comment/api/comment/job/v1"
+	"github.com/zldongly/comment/app/comment/service/internal/biz"
+	"github.com/zldongly/comment/app/comment/service/internal/pkg/convert"
 	"google.golang.org/protobuf/proto"
 	"time"
 )
@@ -35,13 +37,26 @@ func (*CommentContent) TableName() string {
 	return "comment_content"
 }
 
-func (r *commentRepo) ListCommentContent(ctx context.Context, ids []int64) ([]*CommentContent, error) {
+func (c *CommentContent) ToBiz() *biz.CommentContent {
+	return &biz.CommentContent{
+		Id:          c.CommentId,
+		Ip:          c.Ip,
+		Platform:    c.Platform,
+		Device:      c.Device,
+		AtMemberIds: convert.StringToInt64s(c.AtMemberIds),
+		Message:     c.Message,
+		Meta:        c.Meta,
+	}
+}
+
+func (r *commentRepo) ListCommentContent(ctx context.Context, ids []int64) ([]*biz.CommentContent, error) {
 	var (
-		log     = r.log
-		err     error
-		list    = make([]*CommentContent, 0, len(ids))
-		lessIds = make([]int64, 0, len(ids))
-		cache   = r.data.cache
+		log             = r.log
+		err             error
+		list            = make([]*CommentContent, 0, len(ids))
+		commentContents = make([]*biz.CommentContent, 0, len(ids))
+		lessIds         = make([]int64, 0, len(ids))
+		cache           = r.data.cache
 	)
 
 	// 本地缓存
@@ -140,6 +155,10 @@ func (r *commentRepo) ListCommentContent(ctx context.Context, ids []int64) ([]*C
 		}
 	}
 
+	for _, content := range list {
+		commentContents = append(commentContents, content.ToBiz())
+	}
+
 	// kafka
 	if len(ids) > 0 {
 		k := &job.CacheContentReq{
@@ -160,5 +179,5 @@ func (r *commentRepo) ListCommentContent(ctx context.Context, ids []int64) ([]*C
 		}
 	}
 
-	return list, nil
+	return commentContents, nil
 }

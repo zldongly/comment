@@ -1,6 +1,7 @@
 package data
 
 import (
+	"context"
 	"github.com/go-kratos/kratos/v2/log"
 	"github.com/zldongly/comment/app/comment/service/internal/biz"
 )
@@ -21,4 +22,12 @@ func NewCommentRepo(data *Data, logger log.Logger) biz.CommentRepo {
 		data: data,
 		log:  log.NewHelper(log.With(logger, "module", "data/comment")),
 	}
+}
+
+func (r *commentRepo) CreateComment(ctx context.Context, comment *biz.Comment) error {
+	return nil
+}
+
+func (r *commentRepo)DeleteComment(ctx context.Context, id int64) error {
+	return nil
 }

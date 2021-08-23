@@ -31,3 +31,7 @@ func Int64sToString(is []int64) string {
 
 	return s
 }
+
+func Offset(pageNo, pageSize int32) int32 {
+	return (pageNo - 1) * pageSize
+}
