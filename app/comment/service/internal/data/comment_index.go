@@ -15,8 +15,10 @@ import (
 )
 
 const (
-	_commentIndexCacheKey      = `comment_index_cache:%d:%d`       // obj_id, obj_type
-	_commentIndexLocalCacheKey = `comment_index_cache:%d:%d:%d:%d` // obj_id, obj_type, pageNo, pageSize
+	_commentIndexCacheKey           = `comment_index_cache:%d:%d`          // obj_id, obj_type
+	_commentIndexLocalCacheKey      = `comment_index_cache:%d:%d:%d:%d`    // obj_id, obj_type, pageNo, pageSize
+	_commentReplyIndexCacheKey      = `comment_reply_index_cache:%d`       // root_id
+	_commentReplyIndexLocalCacheKey = `comment_reply_index_cache:%d:%d:%d` // root_id, pageNo, pageSize
 )
 
 type CommentIndex struct {
@@ -195,6 +197,99 @@ func (r *commentRepo) ListCommentIndex(ctx context.Context, objType int32, objId
 	return list, nil
 }
 
-func (r *commentRepo) ListReplyIndex(ctx context.Context, id int64, pageNo int32, pageSize int32) ([]*biz.CommentIndex, error) {
-	return nil, nil
+func (r *commentRepo) ListReplyIndex(ctx context.Context, rootId int64, pageNo int32, pageSize int32) ([]*biz.CommentIndex, error) {
+	var (
+		log    = r.log
+		redis  = r.data.redis.Get()
+		key    = fmt.Sprintf(_commentReplyIndexCacheKey, rootId)
+		offset = convert.Offset(pageNo, pageSize)
+		list   = make([]*biz.CommentIndex, 0, pageSize)
+		indexs = make([]*CommentIndex, 0, pageSize)
+	)
+	defer redis.Close()
+
+	// redis
+	if reply, err := redis.Do("zrange", key, offset, pageSize); err == nil {
+		if replies, ok := reply.([]interface{}); ok {
+			for _, rep := range replies {
+				if bs, ok := rep.([]byte); ok {
+					var comment CommentIndex
+					if err = json.Unmarshal(bs, &comment); err == nil {
+						indexs = append(indexs, &comment)
+					} else {
+						log.Error(err)
+					}
+				}
+			}
+		}
+	} else {
+		log.Error(err)
+	}
+	if len(indexs) >= int(pageSize) {
+		for _, index := range indexs {
+			list = append(list, index.ToBiz())
+		}
+
+		return list, nil
+	}
+
+	// cache本地缓存
+	key = fmt.Sprintf(_commentReplyIndexLocalCacheKey, rootId, pageNo, pageSize)
+	if buf, err := r.data.cache.Get([]byte(key)); err == nil {
+		if err = json.Unmarshal(buf, &indexs); err == nil {
+			for _, index := range indexs {
+				list = append(list, index.ToBiz())
+				return list, nil
+			}
+		} else if !errors.Is(err, freecache.ErrNotFound) {
+			log.Error(err)
+		}
+	} else {
+		log.Error(err)
+	}
+
+	// database
+	result := r.data.db.
+		WithContext(ctx).
+		Where("root = ?", rootId).
+		Offset(int(offset)).
+		Limit(int(pageSize)).
+		Order("floor ASC").
+		Find(&indexs)
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	if len(indexs) == 0 {
+		return list, nil
+	}
+
+	// cache
+	if buf, err := json.Marshal(indexs); err == nil {
+		if err = r.data.cache.Set([]byte(key), buf, _localCacheExpire); err != nil {
+			log.Error(err)
+		}
+	} else {
+		log.Error(err)
+	}
+
+	// kafka
+	k := &job.CacheReplyReq{CommentId: rootId, PageNo: pageNo, PageSize: pageSize}
+	if buf, err := proto.Marshal(k); err == nil {
+		msg := &sarama.ProducerMessage{
+			Topic: job.TopicCacheReply,
+			Key:   sarama.StringEncoder(fmt.Sprintf("%d+%d", indexs[0].ObjId, indexs[0].ObjType)),
+			Value: sarama.ByteEncoder(buf),
+		}
+		if _, _, err = r.data.kafka.SendMessage(msg); err != nil {
+			log.Error(err)
+		}
+	} else {
+		log.Error(err)
+	}
+
+	for _, index := range indexs {
+		list = append(list, index.ToBiz())
+	}
+
+	return list, nil
 }

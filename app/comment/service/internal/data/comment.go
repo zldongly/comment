@@ -28,6 +28,6 @@ func (r *commentRepo) CreateComment(ctx context.Context, comment *biz.Comment) e
 	return nil
 }
 
-func (r *commentRepo)DeleteComment(ctx context.Context, id int64) error {
+func (r *commentRepo) DeleteComment(ctx context.Context, id int64) error {
 	return nil
 }
