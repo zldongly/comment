@@ -35,7 +35,7 @@ message CreateCommentReq {
     string message = 7;
     string meta = 8; // 背景等信息
     int64 ip = 9;
-    string platform = 10;
+    int32 platform = 10;
     string  device = 11;
 }
 

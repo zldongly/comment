@@ -9,6 +9,9 @@ import (
 type Comment struct {
 	Id int64
 
+	ObjId   int64
+	ObjType int32
+
 	MemberId       int64
 	Root           int64
 	Parent         int64
@@ -81,6 +84,6 @@ func NewCommentUseCase(comment CommentRepo, subject SubjectRepo, logger log.Logg
 	return &CommentUseCase{
 		commentRepo: comment,
 		subjectRepo: subject,
-		log: log.NewHelper(log.With(logger, "module", "usecase/comment")),
+		log:         log.NewHelper(log.With(logger, "module", "usecase/comment")),
 	}
 }
