@@ -3,6 +3,7 @@ package biz
 import (
 	"context"
 	"github.com/go-kratos/kratos/v2/log"
+	"golang.org/x/sync/errgroup"
 	"time"
 )
 
@@ -59,11 +60,35 @@ type CommentIndex struct {
 type CommentContent struct {
 	Id          int64
 	Ip          int64
-	Platform    string
+	Platform    int8
 	Device      string
 	AtMemberIds []int64
 	Message     string
 	Meta        string
+}
+
+func (c *Comment) merge(index *CommentIndex, content *CommentContent) {
+	c.Id = index.Id
+	c.ObjId = index.ObjId
+	c.ObjType = index.ObjType
+	c.MemberId = index.MemberId
+	c.Root = index.Root
+	c.Parent = index.Parent
+	c.ParentMemberId = index.ParentMemberId
+	c.Floor = index.Floor
+	c.Count = index.Count
+	c.Like = index.Like
+	c.Hate = index.Hate
+	c.State = index.State
+	c.Attrs = index.Attrs
+	c.AtMemberIds = content.AtMemberIds
+	c.Message = content.Message
+	c.Meta = content.Meta
+	c.Ip = content.Ip
+	c.Platform = content.Platform
+	c.Device = content.Device
+	c.CreateAt = index.CreateAt
+	c.Replies = make([]*Comment, 0, len(index.Replies))
 }
 
 type CommentRepo interface {
@@ -86,4 +111,74 @@ func NewCommentUseCase(comment CommentRepo, subject SubjectRepo, logger log.Logg
 		subjectRepo: subject,
 		log:         log.NewHelper(log.With(logger, "module", "usecase/comment")),
 	}
+}
+
+func (uc *CommentUseCase) ListComment(ctx context.Context, objType int32, objId int64, pageNo, pageSize int32) (*Subject, []*Comment, error) {
+	var (
+		indexs     []*CommentIndex
+		contents   []*CommentContent
+		subject    *Subject
+		err        error
+		commentIds = make([]int64, 0, pageSize*3)
+		comments   = make([]*Comment, 0, pageSize)
+	)
+
+	g, c := errgroup.WithContext(ctx)
+
+	g.Go(func() error {
+		var err error
+		indexs, err = uc.commentRepo.ListCommentIndex(c, objType, objId, pageNo, pageSize)
+		return err
+	})
+	g.Go(func() error {
+		var err error
+		subject, err = uc.subjectRepo.Get(c, objId, objType)
+		return err
+	})
+
+	err = g.Wait()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	for _, index := range indexs {
+		commentIds = append(commentIds, index.Id)
+		for _, reply := range index.Replies {
+			commentIds = append(commentIds, reply.Id)
+		}
+	}
+
+	contents, err = uc.commentRepo.ListCommentContent(ctx, commentIds)
+	if err != nil {
+		return nil, nil, err
+	}
+	mContent := make(map[int64]*CommentContent, len(contents))
+	for _, content := range contents {
+		content := content
+		mContent[content.Id] = content
+	}
+
+	// 合并 index 和 content
+	for _, index := range indexs {
+		content := mContent[index.Id]
+		if content == nil {
+			continue
+		}
+
+		comment := new(Comment)
+		comment.merge(index, content)
+		for _, reply := range index.Replies {
+			content = mContent[reply.Id]
+			if content == nil {
+				continue
+			}
+
+			r := new(Comment)
+			r.merge(reply, content)
+			comment.Replies = append(comment.Replies, r)
+		}
+		comments = append(comments, comment)
+	}
+
+	return subject, comments, nil
 }
