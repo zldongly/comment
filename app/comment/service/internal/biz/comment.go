@@ -115,11 +115,7 @@ func NewCommentUseCase(comment CommentRepo, subject SubjectRepo, logger log.Logg
 
 func (uc *CommentUseCase) ListComment(ctx context.Context, objType int32, objId int64, pageNo, pageSize int32) (*Subject, []*Comment, error) {
 	var (
-		indexs     []*CommentIndex
-		contents   []*CommentContent
 		subject    *Subject
-		err        error
-		commentIds = make([]int64, 0, pageSize*3)
 		comments   = make([]*Comment, 0, pageSize)
 	)
 
@@ -127,58 +123,64 @@ func (uc *CommentUseCase) ListComment(ctx context.Context, objType int32, objId 
 
 	g.Go(func() error {
 		var err error
-		indexs, err = uc.commentRepo.ListCommentIndex(c, objType, objId, pageNo, pageSize)
-		return err
-	})
-	g.Go(func() error {
-		var err error
 		subject, err = uc.subjectRepo.Get(c, objId, objType)
 		return err
 	})
-
-	err = g.Wait()
-	if err != nil {
-		return nil, nil, err
-	}
-
-	for _, index := range indexs {
-		commentIds = append(commentIds, index.Id)
-		for _, reply := range index.Replies {
-			commentIds = append(commentIds, reply.Id)
-		}
-	}
-
-	contents, err = uc.commentRepo.ListCommentContent(ctx, commentIds)
-	if err != nil {
-		return nil, nil, err
-	}
-	mContent := make(map[int64]*CommentContent, len(contents))
-	for _, content := range contents {
-		content := content
-		mContent[content.Id] = content
-	}
-
-	// 合并 index 和 content
-	for _, index := range indexs {
-		content := mContent[index.Id]
-		if content == nil {
-			continue
+	g.Go(func() error {
+		var (
+			err error
+			indexs     []*CommentIndex
+			contents   []*CommentContent
+			commentIds = make([]int64, 0, pageSize*3)
+		)
+		indexs, err = uc.commentRepo.ListCommentIndex(c, objType, objId, pageNo, pageSize)
+		if err != nil {
+			return err
 		}
 
-		comment := new(Comment)
-		comment.merge(index, content)
-		for _, reply := range index.Replies {
-			content = mContent[reply.Id]
+		for _, index := range indexs {
+			commentIds = append(commentIds, index.Id)
+			for _, reply := range index.Replies {
+				commentIds = append(commentIds, reply.Id)
+			}
+		}
+
+		contents, err = uc.commentRepo.ListCommentContent(ctx, commentIds)
+		if err != nil {
+			return err
+		}
+		mContent := make(map[int64]*CommentContent, len(contents))
+		for _, content := range contents {
+			content := content
+			mContent[content.Id] = content
+		}
+
+		// 合并 index 和 content
+		for _, index := range indexs {
+			content := mContent[index.Id]
 			if content == nil {
 				continue
 			}
 
-			r := new(Comment)
-			r.merge(reply, content)
-			comment.Replies = append(comment.Replies, r)
-		}
-		comments = append(comments, comment)
-	}
+			comment := new(Comment)
+			comment.merge(index, content)
+			for _, reply := range index.Replies {
+				content = mContent[reply.Id]
+				if content == nil {
+					continue
+				}
 
-	return subject, comments, nil
+				r := new(Comment)
+				r.merge(reply, content)
+				comment.Replies = append(comment.Replies, r)
+			}
+			comments = append(comments, comment)
+		}
+
+		return nil
+	})
+
+	err := g.Wait()
+
+	return subject, comments, err
 }
