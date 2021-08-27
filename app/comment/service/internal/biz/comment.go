@@ -115,8 +115,8 @@ func NewCommentUseCase(comment CommentRepo, subject SubjectRepo, logger log.Logg
 
 func (uc *CommentUseCase) ListComment(ctx context.Context, objType int32, objId int64, pageNo, pageSize int32) (*Subject, []*Comment, error) {
 	var (
-		subject    *Subject
-		comments   = make([]*Comment, 0, pageSize)
+		subject  *Subject
+		comments = make([]*Comment, 0, pageSize)
 	)
 
 	g, c := errgroup.WithContext(ctx)
@@ -126,18 +126,22 @@ func (uc *CommentUseCase) ListComment(ctx context.Context, objType int32, objId 
 		subject, err = uc.subjectRepo.Get(c, objId, objType)
 		return err
 	})
+
 	g.Go(func() error {
 		var (
-			err error
+			err        error
 			indexs     []*CommentIndex
 			contents   []*CommentContent
 			commentIds = make([]int64, 0, pageSize*3)
 		)
+
+		// 查索引
 		indexs, err = uc.commentRepo.ListCommentIndex(c, objType, objId, pageNo, pageSize)
 		if err != nil {
 			return err
 		}
 
+		// 取出所有评论和回复的id
 		for _, index := range indexs {
 			commentIds = append(commentIds, index.Id)
 			for _, reply := range index.Replies {
@@ -145,6 +149,7 @@ func (uc *CommentUseCase) ListComment(ctx context.Context, objType int32, objId 
 			}
 		}
 
+		// 查评论和回复的内容
 		contents, err = uc.commentRepo.ListCommentContent(ctx, commentIds)
 		if err != nil {
 			return err
@@ -164,6 +169,7 @@ func (uc *CommentUseCase) ListComment(ctx context.Context, objType int32, objId 
 
 			comment := new(Comment)
 			comment.merge(index, content)
+			// 回复
 			for _, reply := range index.Replies {
 				content = mContent[reply.Id]
 				if content == nil {

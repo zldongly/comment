@@ -22,7 +22,7 @@ type CommentContent struct {
 	CommentId int64 `gorm:"primarykey"` // 同 CommentIndex.Id
 
 	Ip       int64
-	Platform string
+	Platform int8
 	Device   string
 
 	AtMemberIds string // @的人
