@@ -40,8 +40,8 @@ message CreateCommentReq {
     string message = 7;
     string meta = 8; // 背景等信息
     int64 ip = 9;
-    string platform = 10;
-    string  device = 11;
+    int32 platform = 10;
+    string device = 11;
 }
 
 message CreateCommentReply {}
@@ -64,9 +64,9 @@ message ListCommentReply {
     message Comment {
         int64 comment_id = 1;
         int64 member_id = 2; // 作者
-        int64 floor = 3;
-        int64 like = 4;
-        int64 hate = 5;
+        int32 floor = 3;
+        int32 like = 4;
+        int32 hate = 5;
         repeated int64 at_member_ids = 6;
         string message = 7;
         string meta = 8;
@@ -96,10 +96,10 @@ message Reply {// 评论
     int64 comment_id = 1;
     int64 member_id = 2; // 作者
     int64 parent_id = 3; // 回复的那条comment_id
-    int64 reply_member_id = 4; // 回复的人
-    int64 floor = 5;
-    int64 like = 6;
-    int64 hate = 7;
+    int64 parent_member_id = 4; // 回复的人
+    int32 floor = 5;
+    int32 like = 6;
+    int32 hate = 7;
     repeated int64 at_member_ids = 8;
     string  message = 9;
     int64 create_time = 10;
