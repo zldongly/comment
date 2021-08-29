@@ -67,7 +67,7 @@ type CommentContent struct {
 	Meta        string
 }
 
-func (c *Comment) merge(index *CommentIndex, content *CommentContent) {
+func (c *Comment) merge(index *CommentIndex, content *CommentContent) *Comment {
 	c.Id = index.Id
 	c.ObjId = index.ObjId
 	c.ObjType = index.ObjType
@@ -89,6 +89,7 @@ func (c *Comment) merge(index *CommentIndex, content *CommentContent) {
 	c.Device = content.Device
 	c.CreateAt = index.CreateAt
 	c.Replies = make([]*Comment, 0, len(index.Replies))
+	return c
 }
 
 type CommentRepo interface {
@@ -189,4 +190,46 @@ func (uc *CommentUseCase) ListComment(ctx context.Context, objType int32, objId 
 	err := g.Wait()
 
 	return subject, comments, err
+}
+
+func (uc *CommentUseCase) ListReply(ctx context.Context, rootId int64, pageNo, pageSize int32) ([]*Comment, error) {
+	var (
+		err      error
+		indexs   []*CommentIndex
+		contents []*CommentContent
+		mContent = make(map[int64]*CommentContent, pageSize)
+		replies  = make([]*Comment, 0, pageSize)
+	)
+
+	// index
+	indexs, err = uc.commentRepo.ListReplyIndex(ctx, rootId, pageNo, pageSize)
+	if err != nil {
+		return nil, err
+	}
+	commentIds := make([]int64, 0, len(indexs))
+	for _, index := range indexs {
+		commentIds = append(commentIds, index.Id)
+	}
+
+	// 查content
+	contents, err = uc.commentRepo.ListCommentContent(ctx, commentIds)
+	if err != nil {
+		return nil, err
+	}
+	for idx, _ := range contents {
+		content := contents[idx]
+		mContent[content.Id] = content
+	}
+
+	// 合并 index和content
+	for _, index := range indexs {
+		content := mContent[index.Id]
+		if content == nil {
+			continue
+		}
+		reply := new(Comment).merge(index, content)
+		replies = append(replies, reply)
+	}
+
+	return replies, nil
 }
