@@ -233,3 +233,15 @@ func (uc *CommentUseCase) ListReply(ctx context.Context, rootId int64, pageNo, p
 
 	return replies, nil
 }
+
+func (uc *CommentUseCase) CreateSubject(ctx context.Context, subject *Subject) error {
+	return uc.subjectRepo.Create(ctx, subject)
+}
+
+func (uc *CommentUseCase) CreateComment(ctx context.Context, comment *Comment) error {
+	return uc.commentRepo.CreateComment(ctx, comment)
+}
+
+func (uc *CommentUseCase) DeleteComment(ctx context.Context, id int64) error {
+	return uc.commentRepo.DeleteComment(ctx, id)
+}
