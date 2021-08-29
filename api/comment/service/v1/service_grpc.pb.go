@@ -251,5 +251,5 @@ var CommentService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "service.proto",
+	Metadata: "api/comment/service/v1/service.proto",
 }

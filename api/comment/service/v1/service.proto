@@ -90,7 +90,6 @@ message ListReplyReq {
 
 message ListReplyReply {
     repeated Reply replies = 1;
-    int32 total = 2; // 回复数量
 }
 
 message Reply {// 评论
