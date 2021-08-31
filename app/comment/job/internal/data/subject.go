@@ -2,6 +2,8 @@ package data
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"github.com/go-kratos/kratos/v2/log"
 	"github.com/zldongly/comment/app/comment/job/internal/biz"
 	"time"
@@ -45,9 +47,65 @@ func NewSubjectRepo(data *Data, logger log.Logger) biz.SubjectRepo {
 }
 
 func (r *subjectRepo) Create(ctx context.Context, s *biz.Subject) error {
+	var (
+		log = r.log
+	)
+
+	subject := &CommentSubject{
+		ObjId:    s.ObjId,
+		ObjType:  s.ObjType,
+		MemberId: s.MemberId,
+	}
+
+	// database
+	result := r.data.db.
+		WithContext(ctx).
+		Create(subject)
+	if result.Error != nil {
+		return result.Error
+	}
+
+	redis := r.data.redis.Get()
+	defer redis.Close()
+
+	// redis cache
+	key := fmt.Sprintf(_commentSubjectCacheKey, s.ObjId, s.ObjType)
+	if buf, err := json.Marshal(subject); err == nil {
+		if _, err = redis.Do("set", key, buf); err != nil {
+			log.Error(err)
+		}
+	} else {
+		log.Error(err)
+	}
+
 	return nil
 }
 
 func (r *subjectRepo) Cache(ctx context.Context, objId int64, objType int32) error {
+	var (
+		s *CommentSubject
+	)
+
+	result := r.data.db.
+		WithContext(ctx).
+		Where("obj_id = ?", objId).
+		Where("obj_type = ?", objType).
+		First(s)
+	if result.Error != nil {
+		return result.Error
+	}
+
+	redis := r.data.redis.Get()
+	defer redis.Close()
+
+	key := fmt.Sprintf(_commentSubjectCacheKey, objId, objType)
+	if buf, err := json.Marshal(s); err == nil {
+		if _, err = redis.Do("set", key, buf); err != nil {
+			return err
+		}
+	} else {
+		return err
+	}
+
 	return nil
 }
