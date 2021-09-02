@@ -32,10 +32,6 @@ func (r *commentRepo) CacheIndex(ctx context.Context, objId int64, objType int32
 	return nil
 }
 
-func (r *commentRepo) CacheContent(ctx context.Context, ids []int64) error {
-	return nil
-}
-
 func (r *commentRepo) CacheReply(ctx context.Context, rootId int64, pageNo, pageSize int32) error {
 	return nil
 }
