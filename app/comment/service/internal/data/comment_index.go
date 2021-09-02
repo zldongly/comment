@@ -85,7 +85,7 @@ func (r *commentRepo) ListCommentIndex(ctx context.Context, objType int32, objId
 	defer redis.Close()
 
 	// 先查redis
-	if reply, err := redis.Do("zrevrange", key, offset, offset+pageSize); err == nil {
+	if reply, err := redis.Do("zrevrange", key, offset, offset+pageSize-1); err == nil {
 		if replies, ok := reply.([]interface{}); ok {
 			for _, rep := range replies {
 				if bs, ok := rep.([]byte); ok {
@@ -209,7 +209,7 @@ func (r *commentRepo) ListReplyIndex(ctx context.Context, rootId int64, pageNo i
 	defer redis.Close()
 
 	// redis
-	if reply, err := redis.Do("zrange", key, offset, pageSize); err == nil {
+	if reply, err := redis.Do("zrange", key, offset, offset+pageSize-1); err == nil {
 		if replies, ok := reply.([]interface{}); ok {
 			for _, rep := range replies {
 				if bs, ok := rep.([]byte); ok {
