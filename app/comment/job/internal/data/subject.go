@@ -13,6 +13,7 @@ var _ biz.SubjectRepo = (*subjectRepo)(nil)
 
 const (
 	_commentSubjectCacheKey = `comment_subject_cache:%d:%d` // obj_id, obj_type
+	_commentSubjectCacheTtl = 8 * 60 * 60                   // 8h
 )
 
 type CommentSubject struct {
@@ -71,7 +72,7 @@ func (r *subjectRepo) Create(ctx context.Context, s *biz.Subject) error {
 	// redis cache
 	key := fmt.Sprintf(_commentSubjectCacheKey, s.ObjId, s.ObjType)
 	if buf, err := json.Marshal(subject); err == nil {
-		if _, err = redis.Do("set", key, buf); err != nil {
+		if _, err = redis.Do("setex", key, _commentSubjectCacheTtl, buf); err != nil {
 			log.Error(err)
 		}
 	} else {
@@ -100,7 +101,7 @@ func (r *subjectRepo) Cache(ctx context.Context, objId int64, objType int32) err
 
 	key := fmt.Sprintf(_commentSubjectCacheKey, objId, objType)
 	if buf, err := json.Marshal(s); err == nil {
-		if _, err = redis.Do("set", key, buf); err != nil {
+		if _, err = redis.Do("setex", key, _commentSubjectCacheTtl , buf); err != nil {
 			return err
 		}
 	} else {
