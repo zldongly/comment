@@ -20,11 +20,19 @@ func NewCommentRepo(data *Data, logger log.Logger) biz.CommentRepo {
 	}
 }
 
-func (r *commentRepo) Create(ctx context.Context, c *biz.Comment) error {
+func (r *commentRepo) Create(ctx context.Context, comment *biz.Comment) error {
+	// 创建comment database
+	// cache comment
+	// 修改parent.Count
+	// 缓存parent
 	return nil
 }
 
 func (r *commentRepo) Delete(ctx context.Context, id int64) error {
+	// delete database comment
+	// delete cache
+	// update database parent.Count
+	// update cache parent
 	return nil
 }
 

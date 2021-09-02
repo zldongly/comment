@@ -38,7 +38,7 @@ type Comment struct {
 }
 
 type CommentRepo interface {
-	Create(ctx context.Context, c *Comment) error
+	Create(ctx context.Context, comment *Comment) error
 	Delete(ctx context.Context, id int64) error
 	CacheIndex(ctx context.Context, objId int64, objType int32, pageNo, pageSize int32) error
 	CacheContent(ctx context.Context, ids []int64) error
