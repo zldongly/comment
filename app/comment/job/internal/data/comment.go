@@ -35,11 +35,3 @@ func (r *commentRepo) Delete(ctx context.Context, id int64) error {
 	// update cache parent
 	return nil
 }
-
-func (r *commentRepo) CacheIndex(ctx context.Context, objId int64, objType int32, pageNo, pageSize int32) error {
-	return nil
-}
-
-func (r *commentRepo) CacheReply(ctx context.Context, rootId int64, pageNo, pageSize int32) error {
-	return nil
-}
