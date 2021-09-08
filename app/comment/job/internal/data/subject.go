@@ -4,8 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/go-kratos/kratos/v2/errors"
 	"github.com/go-kratos/kratos/v2/log"
 	"github.com/zldongly/comment/app/comment/job/internal/biz"
+	"gorm.io/gorm"
 	"time"
 )
 
@@ -101,10 +103,67 @@ func (r *subjectRepo) Cache(ctx context.Context, objId int64, objType int32) err
 
 	key := fmt.Sprintf(_commentSubjectCacheKey, objId, objType)
 	if buf, err := json.Marshal(s); err == nil {
-		if _, err = redis.Do("setex", key, _commentSubjectCacheTtl , buf); err != nil {
+		if _, err = redis.Do("setex", key, _commentSubjectCacheTtl, buf); err != nil {
 			return err
 		}
 	} else {
+		return err
+	}
+
+	return nil
+}
+
+func (r *commentRepo) getSubject(ctx context.Context, objId int64, objType int32) (*CommentSubject, error) {
+	var (
+		log     = r.log
+		redis   = r.data.redis.Get()
+		key     = fmt.Sprintf(_commentSubjectCacheKey, objId, objType)
+		subject CommentSubject
+	)
+	defer redis.Close()
+
+	// redis
+	if reply, err := redis.Do("get", key); err == nil {
+		if buf, ok := reply.([]byte); ok {
+			if err = json.Unmarshal(buf, &subject); err == nil {
+				return &subject, nil
+			} else {
+				return nil, err
+			}
+		}
+	} else {
+		log.Error(err)
+	}
+
+	// database
+	result := r.data.db.
+		WithContext(ctx).
+		Where("obj_id = ?", objId).
+		Where("obj_type = ?", objType).
+		First(&subject)
+	if result.Error != nil {
+		if errors.Is(result.Error, gorm.ErrRecordNotFound) { // 不存在
+			return nil, errors.NotFound("comment_subject", "not found")
+		}
+		return nil, result.Error
+	}
+
+	return &subject, nil
+}
+
+func (r *commentRepo) setSubjectCache(ctx context.Context, subject *CommentSubject) error {
+	var (
+		redis = r.data.redis.Get()
+		key   = fmt.Sprintf(_commentSubjectCacheKey, subject.ObjId, subject.ObjType)
+	)
+	defer redis.Close()
+
+	buf, err := json.Marshal(subject)
+	if err != nil {
+		return err
+	}
+	_, err = redis.Do("setex", key, _commentSubjectCacheTtl, buf)
+	if err != nil {
 		return err
 	}
 
