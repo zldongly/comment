@@ -141,31 +141,48 @@ key | comment_subject_cache:**obj_id**:**obj_type**
 value | marshal(db.comment_subject)
 expire | 8h
 
-**comment_index**
+---
+
+**comment_sort**
 
 field | val
 --- | --- 
 type | zset
-key | comment_index_cache:**obj_id**:**obj_type**
+key | comment_sort_cache:**obj_id**:**obj_type**
 score | db.comment_index.create_at
 member | db.comment_index.id
 expire | 8h
 
-**reply_index**
+---
+
+**comment_reply_sort**
 
 field | val
 --- | --- 
 type | zset
-key | comment_reply_index_cache:**comment.root**
+key | comment_reply_sort_cache:**comment.root**
 score | db.comment_index.floor
 member | db.comment_index.id
 expire | 8h
+
+---
+
+**comment_index**
+
+field | val
+--- | --- 
+type | string
+key | comment_index_cache:**comment.id**
+value | marshal(db.comment_index)
+expire | 8h
+
+---
 
 **comment_content**
 
 field | val
 --- | --- 
 type | string
-key | comment_content_cache:**comment_id**
-value | marshal(db.comment_index + db.comment_content)
+key | comment_content_cache:**comment.id**
+value | marshal(db.comment_content)
 expire | 8h

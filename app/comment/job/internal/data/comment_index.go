@@ -10,13 +10,13 @@ import (
 )
 
 const (
-	_commentSortCacheKey       = `comment_sort_cache:%d:%d`     // obj_id, obj_type
-	_commentIndexCacheKey      = `comment_index_cache:%d`       // id
-	_commentReplyIndexCacheKey = `comment_reply_index_cache:%d` // root_id
+	_commentSortCacheKey      = `comment_sort_cache:%d:%d`    // obj_id, obj_type
+	_commentReplySortCacheKey = `comment_reply_sort_cache:%d` // root_id
+	_commentIndexCacheKey     = `comment_index_cache:%d`      // id
 
-	_commentSortCacheTtl       = 8 * 60 * 60 // 8h
-	_commentIndexCacheTtl      = 8 * 60 * 60 // 8h
-	_commentReplyIndexCacheTtl = 8 * 60 * 60 // 8h
+	_commentSortCacheTtl      = 8 * 60 * 60 // 8h
+	_commentReplySortCacheTtl = 8 * 60 * 60 // 8h
+	_commentIndexCacheTtl     = 8 * 60 * 60 // 8h
 )
 
 type CommentIndex struct {
@@ -101,7 +101,7 @@ func (r *commentRepo) CacheIndex(ctx context.Context, objId int64, objType int32
 
 func (r *commentRepo) CacheReply(ctx context.Context, rootId int64, pageNo, pageSize int32) error {
 	var (
-		key    = fmt.Sprintf(_commentReplyIndexCacheKey, rootId)
+		key    = fmt.Sprintf(_commentReplySortCacheKey, rootId)
 		redis  = r.data.redis.Get()
 		log    = r.log
 		offset int64                             // db offset
@@ -111,7 +111,7 @@ func (r *commentRepo) CacheReply(ctx context.Context, rootId int64, pageNo, page
 	defer redis.Close()
 
 	// 是否存在key，如果存在直接延时
-	reply, err := redis.Do("expire", key, _commentReplyIndexCacheTtl)
+	reply, err := redis.Do("expire", key, _commentReplySortCacheTtl)
 	if err != nil {
 		return err
 	}
