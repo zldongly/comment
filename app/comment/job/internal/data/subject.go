@@ -23,8 +23,8 @@ type CommentSubject struct {
 	ObjId     int64
 	ObjType   int32
 	MemberId  int64
-	Count     int32 // 历史根评论数量，删除评论时不减少
-	RootCount int32 // 根评论数量
+	Count     int32 // 历史根评论数量
+	RootCount int32 // 根评论数量，删除评论时不减少
 	AllCount  int32 // 评论 + 评论的回复
 	Status    int8
 
@@ -115,25 +115,8 @@ func (r *subjectRepo) Cache(ctx context.Context, objId int64, objType int32) err
 
 func (r *commentRepo) getSubject(ctx context.Context, objId int64, objType int32) (*CommentSubject, error) {
 	var (
-		log     = r.log
-		redis   = r.data.redis.Get()
-		key     = fmt.Sprintf(_commentSubjectCacheKey, objId, objType)
 		subject CommentSubject
 	)
-	defer redis.Close()
-
-	// redis
-	if reply, err := redis.Do("get", key); err == nil {
-		if buf, ok := reply.([]byte); ok {
-			if err = json.Unmarshal(buf, &subject); err == nil {
-				return &subject, nil
-			} else {
-				return nil, err
-			}
-		}
-	} else {
-		log.Error(err)
-	}
 
 	// database
 	result := r.data.db.

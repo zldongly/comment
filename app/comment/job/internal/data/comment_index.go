@@ -30,6 +30,7 @@ type CommentIndex struct {
 	ParentMemberId int64 // 回复的人
 	Floor          int32 // 楼层
 	Count          int32 // 回复数量
+	ReplyCount     int32 // 评论删除不减
 
 	Like int32 // 点赞
 	Hate int32 // 点睬
@@ -151,24 +152,8 @@ func (r *commentRepo) CacheReply(ctx context.Context, rootId int64, pageNo, page
 
 func (r *commentRepo) getCommentIndex(ctx context.Context, id int64) (*CommentIndex, error) {
 	var (
-		redis = r.data.redis.Get()
-		key   = fmt.Sprintf(_commentIndexCacheKey, id)
-		log   = r.log
 		index CommentIndex
 	)
-	defer redis.Close()
-
-	if reply, err := redis.Do("get", key); err == nil {
-		if buf, ok := reply.([]byte); ok {
-			if err = json.Unmarshal(buf, &index); err == nil {
-				return &index, nil
-			} else {
-				log.Error(err)
-			}
-		}
-	} else {
-		log.Error(err)
-	}
 
 	// db
 	result := r.data.db.
@@ -197,6 +182,25 @@ func (r *commentRepo) setCommentIndexCache(ctx context.Context, index *CommentIn
 		return err
 	}
 	_, err = redis.Do("setex", key, _commentIndexCacheTtl, buf)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (r *commentRepo) setCommentContentCache(ctx context.Context, content *CommentContent) error {
+	var (
+		redis = r.data.redis.Get()
+		key   = fmt.Sprintf(_commentContentCacheKey, content.CommentId)
+	)
+	defer redis.Close()
+
+	buf, err := json.Marshal(content)
+	if err != nil {
+		return err
+	}
+	_, err = redis.Do("setex", key, _commentContentCacheTtl, buf)
 	if err != nil {
 		return err
 	}
