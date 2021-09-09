@@ -19,6 +19,10 @@ const (
 	_commentIndexCacheTtl     = 8 * 60 * 60 // 8h
 )
 
+const (
+	StateDelete int8 = 1
+)
+
 type CommentIndex struct {
 	Id       int64
 	ObjId    int64
