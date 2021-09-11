@@ -101,6 +101,13 @@ func (r *commentRepo) CacheIndex(ctx context.Context, objId int64, objType int32
 		}
 	}
 
+	for _, index := range indexs {
+		err = r.setCommentIndexCache(ctx, index)
+		if err != nil {
+			log.Error(err)
+		}
+	}
+
 	return nil
 }
 
@@ -151,6 +158,17 @@ func (r *commentRepo) CacheReply(ctx context.Context, rootId int64, pageNo, page
 		}
 	}
 
+	if _, err = redis.Do("expire", key, _commentReplySortCacheTtl); err != nil {
+		return err
+	}
+
+	for _, index := range indexs {
+		err = r.setCommentIndexCache(ctx, index)
+		if err != nil {
+			log.Error(err)
+		}
+	}
+
 	return nil
 }
 
@@ -174,39 +192,43 @@ func (r *commentRepo) getCommentIndex(ctx context.Context, id int64) (*CommentIn
 	return &index, nil
 }
 
-func (r *commentRepo) setCommentIndexCache(ctx context.Context, index *CommentIndex) error {
+func (r *commentRepo) setCommentIndexCache(ctx context.Context, indexs ...*CommentIndex) error {
 	var (
 		redis = r.data.redis.Get()
-		key   = fmt.Sprintf(_commentIndexCacheKey, index.Id)
 	)
 	defer redis.Close()
 
-	buf, err := json.Marshal(index)
-	if err != nil {
-		return err
-	}
-	_, err = redis.Do("setex", key, _commentIndexCacheTtl, buf)
-	if err != nil {
-		return err
+	for _, index := range indexs {
+		key := fmt.Sprintf(_commentIndexCacheKey, index.Id)
+		buf, err := json.Marshal(index)
+		if err != nil {
+			return err
+		}
+		_, err = redis.Do("setex", key, _commentIndexCacheTtl, buf)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
 }
 
-func (r *commentRepo) setCommentContentCache(ctx context.Context, content *CommentContent) error {
+func (r *commentRepo) setCommentContentCache(ctx context.Context, contents ...*CommentContent) error {
 	var (
 		redis = r.data.redis.Get()
-		key   = fmt.Sprintf(_commentContentCacheKey, content.CommentId)
 	)
 	defer redis.Close()
 
-	buf, err := json.Marshal(content)
-	if err != nil {
-		return err
-	}
-	_, err = redis.Do("setex", key, _commentContentCacheTtl, buf)
-	if err != nil {
-		return err
+	for _, content := range contents {
+		key := fmt.Sprintf(_commentContentCacheKey, content.CommentId)
+		buf, err := json.Marshal(content)
+		if err != nil {
+			return err
+		}
+		_, err = redis.Do("setex", key, _commentContentCacheTtl, buf)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
